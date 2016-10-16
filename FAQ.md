@@ -136,7 +136,7 @@ I'm trying to connect to a domain hosted on Google, and ...
 
 Google's broken GTalk service is largely unmaintained, and never supported any kind
 of TLS. Metre requires TLS by default, but you can change that within the transport definition
-by adding a `sec='false'` attribute to the transport. You'll almos certainly want to enable
+by adding a `sec='false'` attribute to the transport. You'll almost certainly want to enable
 dialback for these.
 
 Example:
