@@ -26,7 +26,7 @@ to OpenSSL having a FIPS certificate.
 An Ubuntu/Debian APT line reads like:
 
 ```sh
-apt-get install git build-essential g++ cmake libicu-dev libexpat-dev
+apt-get install git build-essential clang cmake libc++-dev libc++abi-dev libicu-dev libexpat-dev
 ```
 
 A CentOS yum line might instead read:
@@ -50,6 +50,15 @@ Enter the directory:
 
 ```sh
 cd metre
+```
+
+### Docker
+
+Because this uses a multi-stage build, there are no dependencies other than Docker, so
+the following command is all that is required:
+
+```
+docker build -t surevinecom/metre .
 ```
 
 ### UNIX

@@ -1,0 +1,7 @@
+/.git
+/.vscode
+/deps/googletest/
+/deps/libevent/
+/deps/openssl/
+/deps/spdlog/
+/deps/unbound/

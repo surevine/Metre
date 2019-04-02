@@ -25,6 +25,10 @@ SOFTWARE.
 
 #include "config.h"
 
+#include "spdlog/sinks/daily_file_sink.h"
+#include "spdlog/sinks/stdout_sinks.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+
 #include <fstream>
 #include <random>
 #include <algorithm>
@@ -578,7 +582,7 @@ Config::Config(std::string const &filename) : m_config_str(), m_dialback_secret(
     // Spin up a temporary error logger.
     m_root_logger = spdlog::stderr_color_st("console");
     spdlog::set_level(spdlog::level::trace);
-    spdlog::set_sync_mode();
+    //spdlog::set_sync_mode();
     load(filename);
     std::string tmp = asString();
     std::ofstream of(m_data_dir + "/" + "metre.running.xml", std::ios_base::trunc);
