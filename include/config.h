@@ -54,9 +54,9 @@ namespace Metre {
     class Config {
     public:
         /* DNS */
-        typedef sigslot::signal<DNS::Srv const *> srv_callback_t;
-        typedef sigslot::signal<DNS::Address const *> addr_callback_t;
-        typedef sigslot::signal<DNS::Tlsa const *> tlsa_callback_t;
+        typedef sigslot::signal<std::shared_ptr<DNS::Srv>> srv_callback_t;
+        typedef sigslot::signal<std::shared_ptr<DNS::Address>> addr_callback_t;
+        typedef sigslot::signal<std::shared_ptr<DNS::Tlsa>> tlsa_callback_t;
 
         class Domain {
             friend class ::Metre::Config;
@@ -183,7 +183,7 @@ namespace Metre {
 
             FILTER_RESULT filter(SESSION_DIRECTION dir, Stanza &s) const;
 
-            std::list<std::unique_ptr<Filter>> &filters() {
+            std::list<std::shared_ptr<Filter>> &filters() {
                 return m_filters;
             }
 
@@ -218,16 +218,16 @@ namespace Metre {
             std::string m_cipherlist;
             std::optional<std::string> m_auth_secret;
             struct ssl_ctx_st *m_ssl_ctx = nullptr;
-            std::map<std::string, std::unique_ptr<DNS::Address>> m_host_arecs;
-            std::unique_ptr<DNS::Srv> m_srvrec;
-            std::map<std::string, std::unique_ptr<DNS::Tlsa>> m_tlsarecs;
-            mutable DNS::Address m_current_arec;
-            mutable DNS::Srv m_current_srv;
+            std::map<std::string, std::shared_ptr<DNS::Address>> m_host_arecs;
+            std::shared_ptr<DNS::Srv> m_srvrec;
+            std::map<std::string, std::shared_ptr<DNS::Tlsa>> m_tlsarecs;
+            mutable std::shared_ptr<DNS::Address> m_current_arec = std::make_shared<DNS::Address>();
+            mutable std::shared_ptr<DNS::Srv> m_current_srv = std::make_shared<DNS::Srv>();
             mutable std::vector<DNS::Tlsa> m_tlsa_all;
             mutable srv_callback_t m_srv_pending;
             mutable std::map<std::string, addr_callback_t> m_a_pending;
             mutable std::map<std::string, tlsa_callback_t> m_tlsa_pending;
-            std::list<std::unique_ptr<Filter>> m_filters;
+            std::list<std::shared_ptr<Filter>> m_filters;
             std::list<struct sockaddr_storage> m_auth_endpoint;
             Domain const *m_parent = nullptr;
         };

@@ -1335,26 +1335,26 @@ void Config::Domain::tlsa_lookup_done(int err, struct ub_result *result) {
     } else if (!result->secure && m_dnssec_required) {
         error = "DNSSEC required but unsigned";
     } else {
-        DNS::Tlsa tlsa;
-        tlsa.dnssec = !!result->secure;
-        tlsa.domain = result->qname;
+        auto tlsa = std::make_shared<DNS::Tlsa>();
+        tlsa->dnssec = !!result->secure;
+        tlsa->domain = result->qname;
         for (int i = 0; result->data[i]; ++i) {
             DNS::TlsaRR rr;
             rr.certUsage = static_cast<DNS::TlsaRR::CertUsage>(result->data[i][0]);
             rr.selector = static_cast<DNS::TlsaRR::Selector>(result->data[i][1]);
             rr.matchType = static_cast<DNS::TlsaRR::MatchType>(result->data[i][2]);
             rr.matchData.assign(result->data[i] + 3, result->len[i] - 3);
-            tlsa.rrs.push_back(rr);
+            tlsa->rrs.push_back(rr);
             logger().debug("Data[{}]: ({} bytes) {}:{}:{}::{}", i, result->len[i], rr.certUsage, rr.selector, rr.matchType, rr.matchData);
         }
-        m_tlsa_pending[tlsa.domain].emit(&tlsa);
+        m_tlsa_pending[tlsa->domain].emit(tlsa);
         return;
     }
     logger().info("DNS Error: {}", error);
-    DNS::Tlsa tlsa;
-    tlsa.error = error;
-    tlsa.domain = result->qname;
-    m_tlsa_pending[tlsa.domain].emit(&tlsa);
+    auto tlsa = std::make_shared<DNS::Tlsa>();
+    tlsa->error = error;
+    tlsa->domain = result->qname;
+    m_tlsa_pending[tlsa->domain].emit(tlsa);
 }
 
 namespace {
@@ -1428,16 +1428,16 @@ void Config::Domain::srv_lookup_done(int err, struct ub_result *result) {
     } else if (!result->secure && m_dnssec_required) {
         error = "DNSSEC required but unsigned";
     } else {
-        DNS::Srv &srv = m_current_srv;
+        auto srv = m_current_srv;
         bool xmpps = false;
-        srv.dnssec = srv.dnssec && !!result->secure;
-        srv.domain = result->qname;
-        if (srv.domain.find("_xmpps") == 0) {
+        srv->dnssec = srv->dnssec && !!result->secure;
+        srv->domain = result->qname;
+        if (srv->domain.find("_xmpps") == 0) {
             xmpps = true;
-            srv.xmpps = true;
-            srv.domain = std::string("_xmpp") + (srv.domain.c_str() + 6);
+            srv->xmpps = true;
+            srv->domain = std::string("_xmpp") + (srv->domain.c_str() + 6);
         } else {
-            srv.xmpp = true;
+            srv->xmpp = true;
         }
         for (int i = 0; result->data[i]; ++i) {
             DNS::SrvRR rr;
@@ -1449,55 +1449,55 @@ void Config::Domain::srv_lookup_done(int err, struct ub_result *result) {
                 rr.hostname.append(result->data[i] + x + 1, result->data[i][x]);
                 rr.hostname += ".";
             }
-            srv.rrs.push_back(rr);
+            srv->rrs.push_back(rr);
             logger().debug("Data[{}]: ({} bytes) {}:{}:{}::{}", i, result->len[i], rr.priority, rr.weight, rr.port, rr.hostname);
         }
-        if (srv.xmpp && srv.xmpps) {
-            srv_sort(srv);
-            m_srv_pending.emit(&srv);
+        if (srv->xmpp && srv->xmpps) {
+            srv_sort(*srv);
+            m_srv_pending.emit(srv);
         }
         return;
     }
     logger().info("DNS Error: {}");
-    m_current_srv.domain = result->qname;
+    m_current_srv->domain = result->qname;
     if (err == 0 && !result->havedata) {
-        if (m_current_srv.xmpps || m_current_srv.xmpp) {
+        if (m_current_srv->xmpps || m_current_srv->xmpp) {
             // We have done (precisely) one, so set this flag.
-            m_current_srv.nxdomain = true;
+            m_current_srv->nxdomain = true;
         }
     } else {
-        m_current_srv.nxdomain = false;
+        m_current_srv->nxdomain = false;
     }
-    if (m_current_srv.domain.find("_xmpps") == 0) {
-        m_current_srv.xmpps = true;
-        m_current_srv.domain = std::string("_xmpp") + (m_current_srv.domain.c_str() + 6);
+    if (m_current_srv->domain.find("_xmpps") == 0) {
+        m_current_srv->xmpps = true;
+        m_current_srv->domain = std::string("_xmpp") + (m_current_srv->domain.c_str() + 6);
     } else {
-        m_current_srv.xmpp = true;
+        m_current_srv->xmpp = true;
     }
-    if (m_current_srv.xmpp && m_current_srv.xmpps) {
-        if (m_current_srv.rrs.empty()) {
-            if (m_current_srv.nxdomain) {
+    if (m_current_srv->xmpp && m_current_srv->xmpps) {
+        if (m_current_srv->rrs.empty()) {
+            if (m_current_srv->nxdomain) {
                 // Synthesize an SRV.
-                logger().debug("Synthetic SRV for {} : {}", m_current_srv.domain, m_current_srv.error);
+                logger().debug("Synthetic SRV for {} : {}", m_current_srv->domain, m_current_srv->error);
                 DNS::SrvRR rr;
                 rr.port = 5269;
                 rr.hostname =
-                        m_current_srv.domain.c_str() + sizeof("_xmpp-server._tcp.") - 1; // Trim "_xmpp-server._tcp."
+                        m_current_srv->domain.c_str() + sizeof("_xmpp-server._tcp.") - 1; // Trim "_xmpp-server._tcp."
                 METRE_LOG(Log::DEBUG, "Set to 0 0 5269 " << rr.hostname);
-                m_current_srv.rrs.push_back(rr);
-                m_current_srv.error.clear();
+                m_current_srv->rrs.push_back(rr);
+                m_current_srv->error.clear();
             }
         }
-        if (m_current_srv.rrs.empty()) {
-            DNS::Srv srv;
-            srv.error = error;
-            srv.domain = result->qname;
-            srv.dnssec = srv.dnssec && !!result->secure;
-            m_srv_pending.emit(&srv);
+        if (m_current_srv->rrs.empty()) {
+            auto srv = std::make_shared<DNS::Srv>();
+            srv->error = error;
+            srv->domain = result->qname;
+            srv->dnssec = srv->dnssec && !!result->secure;
+            m_srv_pending.emit(srv);
         } else {
-            srv_sort(m_current_srv);
-            m_current_srv.dnssec = m_current_srv.dnssec && !!result->secure;
-            m_srv_pending.emit(&m_current_srv);
+            srv_sort(*m_current_srv);
+            m_current_srv->dnssec = m_current_srv->dnssec && !!result->secure;
+            m_srv_pending.emit(m_current_srv);
         }
     }
 }
@@ -1514,23 +1514,23 @@ void Config::Domain::a_lookup_done(int err, struct ub_result *result) {
     } else if (!result->secure && m_dnssec_required) {
         error = "DNSSEC required but unsigned";
     } else {
-        DNS::Address &a = m_current_arec;
-        if (a.hostname != result->qname) {
-            a.error = "";
-            a.dnssec = !!result->secure;
-            a.hostname = result->qname;
-            a.addr.clear();
-            a.ipv4 = a.ipv6 = false;
+        auto a = m_current_arec;
+        if (a->hostname != result->qname) {
+            a->error = "";
+            a->dnssec = !!result->secure;
+            a->hostname = result->qname;
+            a->addr.clear();
+            a->ipv4 = a->ipv6 = false;
         } else {
-            a.dnssec = a.dnssec && !!result->secure;
-            a.error = "";
+            a->dnssec = a->dnssec && !!result->secure;
+            a->error = "";
         }
         METRE_LOG(Log::DEBUG, "... Success for " << result->qtype);
         if (result->qtype == 1) {
-            m_current_arec.ipv4 = true;
+            m_current_arec->ipv4 = true;
             for (int i = 0; result->data[i]; ++i) {
-                a.addr.emplace_back();
-                struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(&*a.addr.rbegin());
+                a->addr.emplace_back();
+                struct sockaddr_in *sin = reinterpret_cast<struct sockaddr_in *>(&*a->addr.rbegin());
                 sin->sin_family = AF_INET;
 #ifdef METRE_WINDOWS
                 sin->sin_addr = *reinterpret_cast<struct in_addr *>(result->data[i]);
@@ -1539,39 +1539,39 @@ void Config::Domain::a_lookup_done(int err, struct ub_result *result) {
 #endif
             }
         } else if (result->qtype == 28) {
-            m_current_arec.ipv6 = true;
+            m_current_arec->ipv6 = true;
             for (int i = 0; result->data[i]; ++i) {
-                a.addr.emplace(a.addr.begin());
-                struct sockaddr_in6 *sin = reinterpret_cast<struct sockaddr_in6 *>(&*a.addr.begin());
+                a->addr.emplace(a->addr.begin());
+                struct sockaddr_in6 *sin = reinterpret_cast<struct sockaddr_in6 *>(&*a->addr.begin());
                 sin->sin6_family = AF_INET6;
                 memcpy(sin->sin6_addr.s6_addr, result->data[i], 16);
             }
         }
-        if (m_current_arec.ipv4 && m_current_arec.ipv6) {
-            m_a_pending[a.hostname].emit(&a);
+        if (m_current_arec->ipv4 && m_current_arec->ipv6) {
+            m_a_pending[a->hostname].emit(a);
         }
         return;
     }
     METRE_LOG(Log::DEBUG, "... Failure for " << result->qtype << " with " << error);
-    if (m_current_arec.hostname != result->qname) {
-        m_current_arec.error = error;
-        m_current_arec.dnssec = !!result->secure;
-        m_current_arec.hostname = result->qname;
-        m_current_arec.addr.clear();
-        m_current_arec.ipv4 = m_current_arec.ipv6 = false;
+    if (m_current_arec->hostname != result->qname) {
+        m_current_arec->error = error;
+        m_current_arec->dnssec = !!result->secure;
+        m_current_arec->hostname = result->qname;
+        m_current_arec->addr.clear();
+        m_current_arec->ipv4 = m_current_arec->ipv6 = false;
     }
     switch (result->qtype) {
         case 1:
-            m_current_arec.ipv4 = true;
+            m_current_arec->ipv4 = true;
             break;
         case 28:
-            m_current_arec.ipv6 = true;
+            m_current_arec->ipv6 = true;
     }
-    if (m_current_arec.ipv4 && m_current_arec.ipv6) {
-        if (m_current_arec.addr.empty()) {
-            m_current_arec.error = error;
+    if (m_current_arec->ipv4 && m_current_arec->ipv6) {
+        if (m_current_arec->addr.empty()) {
+            m_current_arec->error = error;
         }
-        m_a_pending[m_current_arec.hostname].emit(&m_current_arec);
+        m_a_pending[m_current_arec->hostname].emit(m_current_arec);
     }
 }
 
@@ -1598,15 +1598,15 @@ Config::addr_callback_t &Config::Domain::AddressLookup(std::string const &ihostn
     }
     auto it = arecs->find(hostname);
     if (it != arecs->end()) {
-        auto addr = &*(it->second);
+        auto addr = it->second;
         Router::defer([addr, this]() {
             m_a_pending[addr->hostname].emit(addr);
         });
         METRE_LOG(Metre::Log::DEBUG, "Using DNS override");
     } else {
-        m_current_arec.hostname = "";
-        m_current_arec.addr.clear();
-        m_current_arec.ipv6 = m_current_arec.ipv4 = false;
+        m_current_arec->hostname = "";
+        m_current_arec->addr.clear();
+        m_current_arec->ipv6 = m_current_arec->ipv4 = false;
         resolve_async(this, hostname, 28, a_lookup_done_cb);
         resolve_async(this, hostname, 1, a_lookup_done_cb);
     }
@@ -1617,11 +1617,11 @@ Config::srv_callback_t &Config::Domain::SrvLookup(std::string const &base_domain
     std::string domain = toASCII("_xmpp-server._tcp." + base_domain + ".");
     std::string domains = toASCII("_xmpps-server._tcp." + base_domain + ".");
     METRE_LOG(Metre::Log::DEBUG, "SRV lookup for " << domain << " context:" << m_domain);
-    auto rec = &*m_srvrec;
+    auto rec = m_srvrec;
     if (!rec) {
         for (Domain const *d = this; d; d = d->m_parent) {
             METRE_LOG(Metre::Log::DEBUG, "DNS overrides empty, trying parent {" << d->domain() << "}");
-            rec = &*d->m_srvrec;
+            rec = d->m_srvrec;
             if (rec) break;
         }
     }
@@ -1633,22 +1633,22 @@ Config::srv_callback_t &Config::Domain::SrvLookup(std::string const &base_domain
     } else if (base_domain.empty()) {
         srv_callback_t &cb = m_srv_pending;
         Router::defer([&cb]() {
-            DNS::Srv r;
-            r.error = "Empty Domain - DNS aborted";
-            cb.emit(&r);
+            auto r = std::make_shared<DNS::Srv>();
+            r->error = "Empty Domain - DNS aborted";
+            cb.emit(r);
         });
     } else if (m_type == X2X) {
         srv_callback_t &cb = m_srv_pending;
         Router::defer([&cb]() {
-            DNS::Srv r;
-            r.error = "X2X - DNS aborted";
-            cb.emit(&r);
+            auto r = std::make_shared<DNS::Srv>();
+            r->error = "X2X - DNS aborted";
+            cb.emit(r);
         });
     } else {
-        m_current_srv.xmpp = m_current_srv.xmpps = false;
-        m_current_srv.rrs.clear();
-        m_current_srv.dnssec = true;
-        m_current_srv.error.clear();
+        m_current_srv->xmpp = m_current_srv->xmpps = false;
+        m_current_srv->rrs.clear();
+        m_current_srv->dnssec = true;
+        m_current_srv->error.clear();
         resolve_async(this, domain, 33, srv_lookup_done_cb);
         resolve_async(this, domains, 33, srv_lookup_done_cb);
     }
@@ -1670,7 +1670,7 @@ Config::tlsa_callback_t &Config::Domain::TlsaLookup(unsigned short port, std::st
     }
     auto it = recs->find(domain);
     if (it != recs->end()) {
-        auto addr = &*(it->second);
+        auto addr = it->second;
         Router::defer([addr, this]() {
             m_tlsa_pending[addr->domain].emit(addr);
         });
@@ -1678,9 +1678,9 @@ Config::tlsa_callback_t &Config::Domain::TlsaLookup(unsigned short port, std::st
     } else if (m_type == X2X) {
         auto &cb = m_tlsa_pending[domain];
         Router::defer([&cb]() {
-            DNS::Tlsa r;
-            r.error = "X2X - DNS aborted";
-            cb.emit(&r);
+            auto r = std::make_shared<DNS::Tlsa>();
+            r->error = "X2X - DNS aborted";
+            cb.emit(r);
         });
     } else {
         resolve_async(this, domain, 52, tlsa_lookup_done_cb);
