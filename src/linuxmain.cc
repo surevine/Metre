@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     try {
         // Firstly, load up the configuration.
         bc = std::make_unique<BootConfig>(argc, argv);
-        config = std::make_unique<Metre::Config>(bc->config_file);
+        config = std::make_unique<Metre::Config>(bc->config_file, "");
         if (bc->boot_method.empty()) {
             bc->boot_method = config->boot_method();
         }

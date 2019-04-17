@@ -232,7 +232,7 @@ namespace Metre {
             Domain const *m_parent = nullptr;
         };
 
-        Config(std::string const &filename);
+        Config(std::string const &filename, std::string const &templog);
 
         ~Config();
 
