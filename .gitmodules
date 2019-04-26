@@ -9,7 +9,7 @@
 	url = https://github.com/surevine/spiffing
 [submodule "deps/openssl"]
 	path = deps/openssl
-	url = git://git.openssl.org/openssl.git
+	url = https://github.com/openssl/openssl
 [submodule "deps/libevent"]
 	path = deps/libevent
 	url = https://github.com/libevent/libevent
