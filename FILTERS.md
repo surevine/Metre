@@ -3,7 +3,7 @@ Filters
 
 Filters in Metre are long-lived, stateful objects which have one instance per domain.
 
-Currently, thy only operate on inbound stanzas to a particular domain, and only on S2S
+Currently, they only operate on inbound stanzas to a particular domain, and only on S2S
 links (ie, not XEP-0114).
 
 Filters may have global configuration, within a `<filters/>` inside the `<globals/>` section,
