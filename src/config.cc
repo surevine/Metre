@@ -580,17 +580,24 @@ SSL_CTX *Config::Domain::ssl_ctx() const {
     return ctx;
 }
 
-Config::Config(std::string const &filename) : m_config_str(), m_dialback_secret(random_identifier()) {
+Config::Config(std::string const &filename, std::string const &temp_log) : m_config_str(), m_dialback_secret(random_identifier()) {
     s_config = this;
     // Spin up a temporary error logger.
-    m_root_logger = spdlog::stderr_color_st("console");
+    if (temp_log.empty()) {
+        m_root_logger = spdlog::stderr_color_st("boot");
+    } else {
+        m_root_logger = spdlog::daily_logger_st("boot", temp_log);
+    }
     spdlog::set_level(spdlog::level::trace);
     //spdlog::set_sync_mode();
+    m_root_logger->debug("Loading '{}'", filename);
     load(filename);
+    m_root_logger->debug("Done");
     m_ub_ctx = ub_ctx_create();
     if (!m_ub_ctx) {
         throw std::runtime_error("DNS context creation failure.");
     }
+    m_root_logger->debug("DNS context up");
 }
 
 Config::~Config() {

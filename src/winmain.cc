@@ -41,8 +41,9 @@ namespace {
         std::string boot_method;
 
         BootConfig(int argc, char *argv[])
-                : config_file("./metre.conf.xml"), boot_method() {
-            for (int i = 1; argv[i]; ++i) {
+                : config_file("C:\\Metre\\metre.conf.xml"), boot_method() {
+            if (argc < 1) return;
+            for (int i = 1; i < argc; ++i) {
                 char opt;
                 switch (argv[i][0]) {
                     case '-':
@@ -50,12 +51,12 @@ namespace {
                         opt = argv[i][1];
                         break;
                     default:
-                        std::cerr << "Don't understand commandline arg " << argv[i] << std::endl;
+                        //std::cerr << "Don't understand commandline arg " << argv[i] << std::endl;
                         exit(2);
                 }
                 ++i;
                 if (!argv[i]) {
-                    std::cerr << "Missing argument for option '" << opt << "'" << std::endl;
+                    //std::cerr << "Missing argument for option '" << opt << "'" << std::endl;
                     exit(2);
                 }
                 switch (opt) {
@@ -95,10 +96,25 @@ VOID WINAPI ServiceCtrlHandler(DWORD);
 
 DWORD WINAPI ServiceWorkerThread(LPVOID lpParam);
 
-#define SERVICE_NAME  "My Sample Service"
+#define SERVICE_NAME  "Metre"
 
 VOID WINAPI ServiceMain(DWORD argc, LPTSTR *argv) {
     DWORD Status = E_FAIL;
+
+    bc = std::make_unique<BootConfig>(argc, argv);
+
+    config = std::make_unique<Metre::Config>(bc->config_file, "C:\\Metre\\temp.log");
+
+    if (bc->boot_method.empty()) {
+        bc->boot_method = config->boot_method();
+    }
+
+    if (bc->boot_method != "service") {
+        OutputDebugString(_T("Metre: ServiceMain: Wrong boot method"));
+        goto EXIT;
+    }
+    config->log_init();
+    config->logger().info("Service start");
 
     // Register our service control handler with the SCM
     g_StatusHandle = RegisterServiceCtrlHandler(SERVICE_NAME, ServiceCtrlHandler);
@@ -138,16 +154,6 @@ VOID WINAPI ServiceMain(DWORD argc, LPTSTR *argv) {
         if (SetServiceStatus(g_StatusHandle, &g_ServiceStatus) == FALSE) {
             OutputDebugString(_T("Metre: ServiceMain: SetServiceStatus returned error"));
         }
-        goto EXIT;
-    }
-
-    bc = std::make_unique<BootConfig>(argc, argv);
-    config = std::make_unique<Metre::Config>(bc->config_file);
-    if (bc->boot_method.empty()) {
-        bc->boot_method = config->boot_method();
-    }
-    if (bc->boot_method != "service") {
-        OutputDebugString(_T("Metre: ServiceMain: Wrong boot method"));
         goto EXIT;
     }
 
@@ -191,7 +197,7 @@ int main(int argc, char *argv[]) {
     try {
         // Parse arguments.
         bc = std::make_unique<BootConfig>(argc, argv);
-        if (!bc->boot_method.empty() && bc->boot_method == "service") {
+        if (bc->boot_method.empty() || bc->boot_method == "service") {
             SERVICE_TABLE_ENTRY ServiceTable[] = {
                     {SERVICE_NAME, (LPSERVICE_MAIN_FUNCTION) ServiceMain},
                     {NULL, NULL}
@@ -201,16 +207,18 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         }
-        // Load config, first pass.
-        config = std::make_unique<Metre::Config>(bc->config_file);
-        if (bc->boot_method.empty()) {
-            bc->boot_method = config->boot_method();
-        }
     } catch (std::runtime_error &e) {
         std::cout << "Error while loading config: " << e.what() << std::endl;
         return 1;
     }
     try {
+        // Load config, first pass.
+        config = std::make_unique<Metre::Config>(bc->config_file, "C:\\Metre\\temp.log");
+        config->log_init();
+        if (bc->boot_method.empty()) {
+            bc->boot_method = config->boot_method();
+        }
+        config->logger().info("Win32 startup, boot_method {}", bc->boot_method);
         if (bc->boot_method == "none") {
             config->log_init();
             config->write_runtime_config();
@@ -260,7 +268,6 @@ VOID WINAPI ServiceCtrlHandler(DWORD CtrlCode) {
 }
 
 DWORD WINAPI ServiceWorkerThread(LPVOID lpParam) {
-    config->log_init();
     config->write_runtime_config();
 
     Metre::Router::main([]() {
